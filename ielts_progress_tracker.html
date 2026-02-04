@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cambridge IELTS Tracker</title>
+<style>
+  :root {
+    --bg: #f5f5f5;
+    --card: #ffffff;
+    --text: #111;
+    --border: #ddd;
+  }
+
+  body.dark {
+    --bg: #121212;
+    --card: #1e1e1e;
+    --text: #eaeaea;
+    --border: #333;
+  }
+
+  body {
+    font-family: system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 20px;
+  }
+
+  button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .progress-group {
+    margin: 15px 0;
+  }
+
+  .progress-group label {
+    display: block;
+    font-size: 0.9em;
+    margin-bottom: 2px;
+  }
+
+  progress {
+    width: 100%;
+    height: 14px;
+  }
+
+  .book {
+    background: var(--card);
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border);
+  }
+
+  .book-header {
+    padding: 12px 15px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    user-select: none;
+  }
+
+  .book-content {
+    padding: 15px;
+    border-top: 1px solid var(--border);
+    display: none;
+  }
+
+  .book.open .book-content {
+    display: block;
+  }
+
+  .test {
+    border-top: 1px dashed var(--border);
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .skill {
+    margin-left: 15px;
+    margin-bottom: 5px;
+  }
+
+  label.checkbox {
+    display: inline-block;
+    width: 220px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>Cambridge IELTS Tracker</h1>
+    <small>Books 1–20 · Tests 1–4 · L/R/W/S</small>
+  </div>
+  <button id="themeToggle">🌙 Dark Mode</button>
+</div>
+
+<div class="progress-group">
+  <label>Overall</label>
+  <progress id="overallProgress" value="0" max="1"></progress>
+</div>
+
+<div class="progress-group">
+  <label>Listening</label>
+  <progress id="pListening" value="0" max="1"></progress>
+</div>
+
+<div class="progress-group">
+  <label>Reading</label>
+  <progress id="pReading" value="0" max="1"></progress>
+</div>
+
+<div class="progress-group">
+  <label>Writing</label>
+  <progress id="pWriting" value="0" max="1"></progress>
+</div>
+
+<div class="progress-group">
+  <label>Speaking</label>
+  <progress id="pSpeaking" value="0" max="1"></progress>
+</div>
+
+<div id="app"></div>
+
+<script>
+const STORAGE_KEY = "ielts-progress-v3";
+const THEME_KEY = "ielts-theme";
+const app = document.getElementById("app");
+
+const structure = {
+  Listening: ["Section 1","Section 2","Section 3","Section 4"],
+  Reading: ["Passage 1","Passage 2","Passage 3"],
+  Writing: ["Task 1","Task 2"],
+  Speaking: ["Part 1","Part 2","Part 3"]
+};
+
+let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+let totals = { Listening:0, Reading:0, Writing:0, Speaking:0 };
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  updateProgress();
+}
+
+function checkbox(id, skill) {
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.checked = state[id] || false;
+  cb.onchange = () => {
+    state[id] = cb.checked;
+    save();
+  };
+  return cb;
+}
+
+for (let book = 1; book <= 20; book++) {
+  const bookDiv = document.createElement("div");
+  bookDiv.className = "book";
+
+  const header = document.createElement("div");
+  header.className = "book-header";
+  header.innerHTML = `<span>Cambridge IELTS ${book}</span><span>▸</span>`;
+  header.onclick = () => {
+    bookDiv.classList.toggle("open");
+    header.lastChild.textContent =
+      bookDiv.classList.contains("open") ? "▾" : "▸";
+  };
+
+  const content = document.createElement("div");
+  content.className = "book-content";
+
+  for (let test = 1; test <= 4; test++) {
+    const testDiv = document.createElement("div");
+    testDiv.className = "test";
+    testDiv.innerHTML = `<strong>Test ${test}</strong><br>`;
+
+    for (const skill in structure) {
+      const skillDiv = document.createElement("div");
+      skillDiv.className = "skill";
+      skillDiv.innerHTML = `<em>${skill}</em><br>`;
+
+      structure[skill].forEach(part => {
+        const id = `B${book}-T${test}-${skill}-${part}`;
+        totals[skill]++;
+
+        const lbl = document.createElement("label");
+        lbl.className = "checkbox";
+        lbl.appendChild(checkbox(id, skill));
+        lbl.append(" " + part);
+
+        skillDiv.appendChild(lbl);
+        skillDiv.appendChild(document.createElement("br"));
+      });
+
+      testDiv.appendChild(skillDiv);
+    }
+    content.appendChild(testDiv);
+  }
+
+  bookDiv.appendChild(header);
+  bookDiv.appendChild(content);
+  app.appendChild(bookDiv);
+}
+
+function updateProgress() {
+  const values = Object.entries(state).filter(e => e[1]).map(e => e[0]);
+
+  const count = skill =>
+    values.filter(v => v.includes(skill)).length;
+
+  const overallDone = values.length;
+  const overallTotal = Object.values(totals).reduce((a,b)=>a+b,0);
+
+  overallProgress.value = overallDone / overallTotal;
+  pListening.value = count("Listening") / totals.Listening;
+  pReading.value   = count("Reading")   / totals.Reading;
+  pWriting.value   = count("Writing")   / totals.Writing;
+  pSpeaking.value  = count("Speaking")  / totals.Speaking;
+}
+
+updateProgress();
+
+/* Dark mode */
+const toggle = document.getElementById("themeToggle");
+
+function applyTheme(t) {
+  document.body.classList.toggle("dark", t === "dark");
+  toggle.textContent = t === "dark" ? "☀ Light Mode" : "🌙 Dark Mode";
+}
+
+applyTheme(localStorage.getItem(THEME_KEY) || "light");
+
+toggle.onclick = () => {
+  const t = document.body.classList.contains("dark") ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, t);
+  applyTheme(t);
+};
+</script>
+
+</body>
+</html>
